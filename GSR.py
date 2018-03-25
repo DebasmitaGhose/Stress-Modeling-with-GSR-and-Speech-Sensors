@@ -11,8 +11,6 @@ import glob
 from numpy.lib.stride_tricks import as_strided
 import scipy as sc
 import matplotlib.pyplot as plt
-from detect_peaks import detect_peaks
-import dspUtil
 from scipy.signal import argrelextrema
 from scipy import signal
 
