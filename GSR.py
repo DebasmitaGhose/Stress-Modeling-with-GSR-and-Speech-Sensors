@@ -13,13 +13,13 @@ import scipy as sc
 import matplotlib.pyplot as plt
 from scipy.signal import argrelextrema
 from scipy import signal
+from sklearn.feature_selection import SelectKBest,f_classif
 
 from sklearn.model_selection import train_test_split
 from sklearn import tree
 from sklearn.metrics import f1_score, recall_score, precision_score, accuracy_score
 
 import warnings
-
 
 ####################################################### Data Read ###########################################################
 
@@ -241,6 +241,14 @@ plt.ylabel('F1 Score')
 plt.xlabel('Features')
 plt.title('F1 Score for a Decision Tree Classifier for GSR Features Trained for ONE feature at a time')
 
+#------------ feature ranking - single feature -------------------------#
+print("feature ranking - GSR")
+sorted_indices = np.argsort(score_single)
+sorted_indices = np.array(sorted_indices)
+for i in range(len(score_single)):
+    print(features[sorted_indices[i]])
+
+
 best_combination = 0
 count = 0
 score_double = np.array([])
@@ -285,6 +293,31 @@ plt.bar(indices,score_double)
 plt.ylabel('F1 Score')
 plt.xlabel('Features')
 plt.title('F1 Score for a Decision Tree Classifier for GSR Features Trained for TWO features at a time')
+
+###################################### Successive Feature Selection - GSR #############################################################
+features = np.vstack(features)
+features_t = np.transpose(features)
+x_GSR_train = np.concatenate((features_t,x_GSR_train))
+x_GSR_train = np.vstack(x_GSR_train)
+df_GSR = pd.DataFrame(data=x_GSR_train,columns = features)
+y_GSR_train = np.insert(y_GSR_train,0,0)
+y_GSR_train = np.vstack(y_GSR_train)
+for i in range(1,num_features):
+    x = x_GSR[:,:i]
+    x = x.reshape(-1,i)
+    x_train = x_GSR_train[:,:]
+    x_test = x_GSR_test[:,:]
+    X_new = SelectKBest(f_classif, k=i)
+    X_new_trans = X_new.fit_transform(df_GSR.iloc[1:,:], y_GSR_train[1:])
+    mask_GSR = X_new.get_support(indices=True)
+    print(x_GSR_train[0,mask_GSR])
+    clf_new = tree.DecisionTreeClassifier()
+    clf_new = clf_new.fit(X_new_trans,y_GSR_train[1:])
+    y_pred_new = clf_new.predict(x_test[:,mask_GSR])
+    Score_f1_new = f1_score(y_GSR_test,y_pred_new)
+    print(Score_f1_new)
+
+
 ##################################################### Feature Selection - Speech #########################################################
 print("###################################################################################################")
 print("Feature Selection - Speech")
@@ -332,6 +365,13 @@ plt.ylabel('F1 Score')
 plt.xlabel('Features')
 plt.title('F1 Score for a Decision Tree Classifier for Speech Features Trained for ONE feature at a time')
 
+#------------ feature ranking - single feature -------------------------#
+print("feature ranking - speech")
+sorted_indices = np.argsort(score_single)
+sorted_indices = np.array(sorted_indices)
+for i in range(len(score_single)):
+    print(features[sorted_indices[i]])
+
 best_combination = 0
 count = 0
 score_double = np.array([])
@@ -375,14 +415,37 @@ plt.ylabel('F1 Score')
 plt.xlabel('Features')
 plt.title('F1 Score for a Decision Tree Classifier for Speech Features Trained for TWO features at a time')
 
+
+####################################### Successive Feature Selection - Speech ########################################################
+
+features = np.vstack(features)
+features_t = np.transpose(features)
+x_speech_train = np.concatenate((features_t,x_speech_train))
+x_speech_train = np.vstack(x_speech_train)
+df_speech = pd.DataFrame(data=x_speech_train,columns = features)
+y_speech_train = np.insert(y_speech_train,0,0)
+y_speech_train = np.vstack(y_speech_train)
+for i in range(1,num_features):
+    x_train = x_speech_train[:,:]
+    x_test = x_speech_test[:,:]
+    X_new = SelectKBest(f_classif, k=i)
+    X_new_trans = X_new.fit_transform(df_speech.iloc[1:,:], y_speech_train[1:])
+    mask_speech = X_new.get_support(indices=True)
+    print(x_speech_train[0,mask_speech])
+    clf_new = tree.DecisionTreeClassifier()
+    clf_new = clf_new.fit(X_new_trans,y_speech_train[1:])
+    y_pred_new = clf_new.predict(x_test[:,mask_speech])
+    Score_f1_new = f1_score(y_speech_test,y_pred_new)
+    print(Score_f1_new)
+
 ############################################################# Sensor Fusion ##############################################################
 
 print("######################################################################################")
 print("Best two GSR Features")
 #Only GSR Features - best 2 features
-x_train_1 = x_GSR_train[:,GSR_best_index_1]
+x_train_1 = x_GSR_train[1:,GSR_best_index_1]
 x_train_1 = np.vstack(x_train_1)
-x_train_2 = x_GSR_train[:,GSR_best_index_2]
+x_train_2 = x_GSR_train[1:,GSR_best_index_2]
 x_train_2 = np.vstack(x_train_2)
 x_train = np.concatenate((x_train_1,x_train_2),axis = -1)
 x_test_1 = x_GSR_test[:,GSR_best_index_1]
@@ -391,7 +454,7 @@ x_test_2 = x_GSR_test[:,GSR_best_index_2]
 x_test_2 = np.vstack(x_test_2)
 x_test = np.concatenate((x_test_1,x_test_2),axis = -1)
 clf = tree.DecisionTreeClassifier()
-clf = clf.fit(x_train,y_GSR_train)
+clf = clf.fit(x_train,y_GSR_train[1:])
 y_pred = clf.predict(x_test)
 Score_f1 = f1_score(y_GSR_test,y_pred)
 Score_recall = recall_score(y_GSR_test,y_pred)
@@ -405,9 +468,9 @@ print("Accuracy = ", Score_accuracy)
 print("######################################################################################")
 print("Best two Speech Features")
 #Only speech Features - best 2 features
-x_train_1 = x_speech_train[:,speech_best_index_1]
+x_train_1 = x_speech_train[1:,speech_best_index_1]
 x_train_1 = np.vstack(x_train_1)
-x_train_2 = x_speech_train[:,speech_best_index_2]
+x_train_2 = x_speech_train[1:,speech_best_index_2]
 x_train_2 = np.vstack(x_train_2)
 x_train = np.concatenate((x_train_1,x_train_2),axis = -1)
 x_test_1 = x_speech_test[:,speech_best_index_1]
@@ -416,7 +479,7 @@ x_test_2 = x_speech_test[:,speech_best_index_2]
 x_test_2 = np.vstack(x_test_2)
 x_test = np.concatenate((x_test_1,x_test_2),axis = -1)
 clf = tree.DecisionTreeClassifier()
-clf = clf.fit(x_train,y_speech_train)
+clf = clf.fit(x_train,y_speech_train[1:])
 y_pred = clf.predict(x_test)
 Score_f1 = f1_score(y_speech_test,y_pred)
 Score_recall = recall_score(y_speech_test,y_pred)
@@ -433,9 +496,9 @@ print('-----------------------------------------------------')
 print("Best of speech and GSR")
 print('-----------------------------------------------------')
 #speech and GSR Features - best of each
-x_train_1 = x_GSR_train[:,GSR_best_index]
+x_train_1 = x_GSR_train[1:,GSR_best_index]
 x_train_1 = np.vstack(x_train_1)
-x_train_2 = x_speech_train[0:len(x_train_1),speech_best_index]
+x_train_2 = x_speech_train[1:(len(x_train_1)+1),speech_best_index]
 x_train_2 = np.vstack(x_train_2)
 x_train = np.concatenate((x_train_1,x_train_2), axis = -1)
 x_test_1 = x_GSR_test[:,GSR_best_index]
@@ -444,7 +507,7 @@ x_test_2 = x_speech_test[0:len(x_test_1),speech_best_index]
 x_test_2 = np.vstack(x_test_2)
 x_test = np.concatenate((x_test_1,x_test_2),axis = -1)
 clf = tree.DecisionTreeClassifier()
-clf = clf.fit(x_train,y_GSR_train)
+clf = clf.fit(x_train,y_GSR_train[1:])
 y_pred = clf.predict(x_test)
 Score_f1 = f1_score(y_GSR_test,y_pred)
 Score_recall = recall_score(y_GSR_test,y_pred)
@@ -460,13 +523,13 @@ print('-----------------------------------------------------')
 print("Best two of speech and GSR")
 print('-----------------------------------------------------')
 #speech and GSR Features - best two of each
-x_train_1 = x_GSR_train[:,GSR_best_index_1]
+x_train_1 = x_GSR_train[1:,GSR_best_index_1]
 x_train_1 = np.vstack(x_train_1)
-x_train_2 = x_GSR_train[:,GSR_best_index_2]
+x_train_2 = x_GSR_train[1:,GSR_best_index_2]
 x_train_2 = np.vstack(x_train_2)
-x_train_3 = x_speech_train[0:len(x_train_1),speech_best_index_1]
+x_train_3 = x_speech_train[1:(len(x_train_1)+1),speech_best_index_1]
 x_train_3 = np.vstack(x_train_3)
-x_train_4 = x_speech_train[0:len(x_train_1),speech_best_index_2]
+x_train_4 = x_speech_train[1:(len(x_train_1)+1),speech_best_index_2]
 x_train_4 = np.vstack(x_train_4)
 x_train = np.concatenate((x_train_1,x_train_2,x_train_3,x_train_4), axis = -1)
 x_test_1 = x_GSR_test[:,GSR_best_index_1]
@@ -479,7 +542,7 @@ x_test_4 = x_speech_test[0:len(x_test_1),speech_best_index_2]
 x_test_4 = np.vstack(x_test_4)
 x_test = np.concatenate((x_test_1,x_test_2,x_test_3,x_test_4),axis = -1)
 clf = tree.DecisionTreeClassifier()
-clf = clf.fit(x_train,y_GSR_train)
+clf = clf.fit(x_train,y_GSR_train[1:])
 y_pred = clf.predict(x_test)
 Score_f1 = f1_score(y_GSR_test,y_pred)
 Score_recall = recall_score(y_GSR_test,y_pred)
